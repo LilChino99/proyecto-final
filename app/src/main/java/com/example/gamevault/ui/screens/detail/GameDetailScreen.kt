@@ -36,7 +36,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -51,11 +50,10 @@ import com.example.gamevault.ui.theme.StarGold
 /**
  * Pantalla de detalle de un videojuego.
  *
- * Muestra la información completa del juego: imagen, nombre, rating,
- * plataformas, géneros, descripción, etc.
- * Incluye un botón para escribir una reseña.
+ * Muestra la información real obtenida desde RAWG API: imagen, nombre, rating,
+ * plataformas, géneros, desarrolladores, descripción completa y botón para reseñar.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameDetailScreen(
     onBackClick: () -> Unit,
@@ -91,7 +89,7 @@ fun GameDetailScreen(
                         .padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
-                    LoadingIndicator(message = "Cargando detalle...")
+                    LoadingIndicator(message = "Cargando detalle desde RAWG API...")
                 }
             }
 
@@ -213,48 +211,66 @@ private fun GameDetailContent(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Géneros
-            Text(
-                text = "Géneros",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                game.genres.forEach { genre ->
-                    AssistChip(
-                        onClick = { },
-                        label = { Text(genre) }
-                    )
+            if (game.genres.isNotEmpty()) {
+                Text(
+                    text = "Géneros",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    game.genres.forEach { genre ->
+                        AssistChip(
+                            onClick = { },
+                            label = { Text(genre) }
+                        )
+                    }
                 }
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            // Desarrolladores
+            if (game.developers.isNotEmpty()) {
+                Text(
+                    text = "Desarrollador",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = game.developers.joinToString(", "),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             // Plataformas
-            Text(
-                text = "Plataformas",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                game.platforms.forEach { platform ->
-                    AssistChip(
-                        onClick = { },
-                        label = { Text(platform) }
-                    )
+            if (game.platforms.isNotEmpty()) {
+                Text(
+                    text = "Plataformas",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    game.platforms.forEach { platform ->
+                        AssistChip(
+                            onClick = { },
+                            label = { Text(platform) }
+                        )
+                    }
                 }
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Descripción placeholder (la real viene de la API en Semana 2)
+            // Descripción real de RAWG API
             Text(
                 text = "Descripción",
                 style = MaterialTheme.typography.titleSmall,
@@ -262,9 +278,7 @@ private fun GameDetailContent(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "La descripción completa se cargará desde la API RAWG en la Semana 2. " +
-                        "Por ahora, este juego pertenece a los géneros ${game.genres.joinToString(", ")} " +
-                        "y está disponible en ${game.platforms.joinToString(", ")}.",
+                text = game.description ?: "Sin descripción disponible.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -295,7 +309,7 @@ private fun GameDetailContent(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Escribir Reseña",
+                    text = "Escribir Reseña Local",
                     style = MaterialTheme.typography.titleMedium
                 )
             }

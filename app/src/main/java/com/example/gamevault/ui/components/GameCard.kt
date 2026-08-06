@@ -32,8 +32,7 @@ import coil.compose.AsyncImage
 import com.example.gamevault.ui.theme.StarGold
 
 /**
- * Datos mock de un juego para la Semana 1.
- * En la Semana 2, estos se reemplazarán por datos reales de la API RAWG.
+ * Modelo de UI para representar un juego (tanto en lista como en detalle).
  */
 data class MockGame(
     val id: Int,
@@ -43,7 +42,11 @@ data class MockGame(
     val metacritic: Int?,
     val genres: List<String>,
     val platforms: List<String>,
-    val released: String?
+    val released: String?,
+    val description: String? = null,
+    val developers: List<String> = emptyList(),
+    val publishers: List<String> = emptyList(),
+    val website: String? = null
 )
 
 /**
