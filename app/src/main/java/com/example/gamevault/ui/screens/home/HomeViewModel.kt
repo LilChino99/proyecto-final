@@ -1,9 +1,11 @@
 package com.example.gamevault.ui.screens.home
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.gamevault.data.mapper.toUiModel
-import com.example.gamevault.data.remote.api.RetrofitClient
+import com.example.gamevault.GameVaultApplication
+import com.example.gamevault.domain.repository.GameRepository
+import com.example.gamevault.ui.components.MockGame
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,15 +14,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * ViewModel para la pantalla Home (catálogo de videojuegos).
+ * ViewModel para la pantalla Home (catálogo).
  *
- * En la Semana 2 consume la API pública de RAWG a través de Retrofit.
- * Expone un StateFlow<HomeUiState> para la UI con los 3 estados: Loading, Success y Error.
+ * Cumple con Clean Architecture: solo interactúa con `GameRepository` de la capa de dominio.
+ * No sabe de dónde vienen los datos (Retrofit, DB, etc.).
  */
-class HomeViewModel : ViewModel() {
+class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val apiService = RetrofitClient.apiService
-    private val apiKey = RetrofitClient.RAWG_API_KEY
+    private val gameRepository: GameRepository = (application as GameVaultApplication).gameRepository
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -34,41 +35,43 @@ class HomeViewModel : ViewModel() {
         loadGames()
     }
 
-    /**
-     * Carga la lista de videojuegos desde la API de RAWG.
-     * Si [query] no está vacío, filtra por nombre de videojuego.
-     */
     fun loadGames(query: String? = null) {
         viewModelScope.launch {
             _uiState.value = HomeUiState.Loading
             try {
-                val response = apiService.getGames(
-                    apiKey = apiKey,
-                    search = if (query.isNullOrBlank()) null else query,
-                    pageSize = 20
+                val domainGames = gameRepository.getGames(
+                    search = if (query.isNullOrBlank()) null else query
                 )
-                val games = response.results.map { it.toUiModel() }
-                _uiState.value = HomeUiState.Success(games)
+                // Mapear modelo de dominio a modelo de presentación UI
+                val uiGames = domainGames.map { domainGame ->
+                    MockGame(
+                        id = domainGame.id,
+                        name = domainGame.name,
+                        backgroundImage = domainGame.backgroundImage,
+                        rating = domainGame.rating,
+                        metacritic = domainGame.metacritic,
+                        genres = domainGame.genres,
+                        platforms = domainGame.platforms,
+                        released = domainGame.released
+                    )
+                }
+                _uiState.value = HomeUiState.Success(uiGames)
             } catch (e: Exception) {
                 val errorMsg = when {
                     e is java.net.UnknownHostException -> "Sin conexión a Internet. Revisa tu red."
                     e is java.net.SocketTimeoutException -> "La conexión tardó demasiado. Reintenta."
-                    else -> e.message ?: "Error al conectar con la API de RAWG"
+                    else -> e.message ?: "Error al obtener los videojuegos"
                 }
                 _uiState.value = HomeUiState.Error(errorMsg)
             }
         }
     }
 
-    /**
-     * Maneja los cambios en la barra de búsqueda con debounce (retardo de 500ms)
-     * para evitar saturar la API con llamadas excesivas mientras el usuario escribe.
-     */
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            delay(500) // Debounce
+            delay(500)
             loadGames(query)
         }
     }

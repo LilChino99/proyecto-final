@@ -1,26 +1,28 @@
 package com.example.gamevault.ui.screens.detail
 
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.gamevault.data.mapper.toUiModel
-import com.example.gamevault.data.remote.api.RetrofitClient
+import com.example.gamevault.GameVaultApplication
+import com.example.gamevault.domain.repository.GameRepository
+import com.example.gamevault.ui.components.MockGame
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * ViewModel para la pantalla de detalle de un juego.
+ * ViewModel para el detalle de un videojuego.
  *
- * En la Semana 2 consume el endpoint /games/{id} de Retrofit.
+ * Depende exclusivamente de `GameRepository` de la capa Domain.
  */
 class GameDetailViewModel(
+    application: Application,
     savedStateHandle: SavedStateHandle
-) : ViewModel() {
+) : AndroidViewModel(application) {
 
-    private val apiService = RetrofitClient.apiService
-    private val apiKey = RetrofitClient.RAWG_API_KEY
+    private val gameRepository: GameRepository = (application as GameVaultApplication).gameRepository
     private val gameId: Int = savedStateHandle.get<Int>("gameId") ?: 0
 
     private val _uiState = MutableStateFlow<GameDetailUiState>(GameDetailUiState.Loading)
@@ -34,12 +36,22 @@ class GameDetailViewModel(
         viewModelScope.launch {
             _uiState.value = GameDetailUiState.Loading
             try {
-                val detailDto = apiService.getGameDetail(
-                    gameId = gameId,
-                    apiKey = apiKey
+                val detail = gameRepository.getGameDetail(gameId)
+                val uiModel = MockGame(
+                    id = detail.id,
+                    name = detail.name,
+                    backgroundImage = detail.backgroundImage,
+                    rating = detail.rating,
+                    metacritic = detail.metacritic,
+                    genres = detail.genres,
+                    platforms = detail.platforms,
+                    released = detail.released,
+                    description = detail.description,
+                    developers = detail.developers,
+                    publishers = detail.publishers,
+                    website = detail.website
                 )
-                val game = detailDto.toUiModel()
-                _uiState.value = GameDetailUiState.Success(game = game)
+                _uiState.value = GameDetailUiState.Success(game = uiModel)
             } catch (e: Exception) {
                 val errorMsg = when {
                     e is java.net.UnknownHostException -> "Sin conexión a Internet."

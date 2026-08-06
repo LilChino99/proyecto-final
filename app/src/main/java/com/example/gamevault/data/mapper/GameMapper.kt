@@ -2,13 +2,14 @@ package com.example.gamevault.data.mapper
 
 import com.example.gamevault.data.remote.dto.GameDetailDto
 import com.example.gamevault.data.remote.dto.GameDto
-import com.example.gamevault.ui.components.MockGame
+import com.example.gamevault.domain.model.Game
+import com.example.gamevault.domain.model.GameDetail
 
 /**
- * Convierte un DTO de juego de la API de RAWG al modelo usado por la UI.
+ * Convierte un DTO de juego de RAWG al modelo de dominio puros `Game`.
  */
-fun GameDto.toUiModel(): MockGame {
-    return MockGame(
+fun GameDto.toDomain(): Game {
+    return Game(
         id = id,
         name = name,
         backgroundImage = backgroundImage,
@@ -21,16 +22,16 @@ fun GameDto.toUiModel(): MockGame {
 }
 
 /**
- * Convierte un DTO de detalle de juego de RAWG al modelo usado por la UI.
+ * Convierte un DTO de detalle de juego al modelo de dominio `GameDetail`.
  */
-fun GameDetailDto.toUiModel(): MockGame {
+fun GameDetailDto.toDomain(): GameDetail {
     val descriptionText = when {
         !descriptionRaw.isNullOrBlank() -> descriptionRaw
         !description.isNullOrBlank() -> description.replace(Regex("<[^>]*>"), "")
         else -> "Sin descripción disponible."
     }
 
-    return MockGame(
+    return GameDetail(
         id = id,
         name = name,
         backgroundImage = backgroundImage,

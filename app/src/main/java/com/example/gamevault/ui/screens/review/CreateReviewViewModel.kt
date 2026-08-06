@@ -5,7 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.example.gamevault.GameVaultApplication
-import com.example.gamevault.data.local.entity.ReviewEntity
+import com.example.gamevault.domain.model.Review
+import com.example.gamevault.domain.repository.ReviewRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,18 +15,14 @@ import kotlinx.coroutines.launch
 /**
  * ViewModel para crear/editar una reseña.
  *
- * Usa AndroidViewModel porque necesita acceso al Application para obtener
- * la instancia de la base de datos (ServiceLocator pattern).
- *
- * Recibe gameId, gameName y gameImageUrl como argumentos de navegación.
+ * Cumple con Clean Architecture: depende exclusivamente de `ReviewRepository`.
  */
 class CreateReviewViewModel(
     application: Application,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
 
-    private val app = application as GameVaultApplication
-    private val reviewDao = app.database.reviewDao()
+    private val reviewRepository: ReviewRepository = (application as GameVaultApplication).reviewRepository
 
     val gameId: Int = savedStateHandle.get<Int>("gameId") ?: 0
     val gameName: String = savedStateHandle.get<String>("gameName") ?: ""
@@ -36,7 +33,6 @@ class CreateReviewViewModel(
     private val _uiState = MutableStateFlow<CreateReviewUiState>(CreateReviewUiState.Idle)
     val uiState: StateFlow<CreateReviewUiState> = _uiState.asStateFlow()
 
-    // Campos del formulario como StateFlow
     private val _reviewText = MutableStateFlow("")
     val reviewText: StateFlow<String> = _reviewText.asStateFlow()
 
@@ -58,9 +54,6 @@ class CreateReviewViewModel(
         _photoPath.value = path
     }
 
-    /**
-     * Guarda la reseña en Room.
-     */
     fun saveReview() {
         if (_reviewText.value.isBlank()) {
             _uiState.value = CreateReviewUiState.Error("Escribe algo en tu reseña")
@@ -74,7 +67,7 @@ class CreateReviewViewModel(
         viewModelScope.launch {
             _uiState.value = CreateReviewUiState.Saving
             try {
-                val review = ReviewEntity(
+                val review = Review(
                     gameId = gameId,
                     gameName = gameName,
                     gameImageUrl = gameImageUrl,
@@ -82,7 +75,7 @@ class CreateReviewViewModel(
                     userRating = _userRating.value,
                     photoPath = _photoPath.value
                 )
-                reviewDao.insertReview(review)
+                reviewRepository.saveReview(review)
                 _uiState.value = CreateReviewUiState.Saved
             } catch (e: Exception) {
                 _uiState.value = CreateReviewUiState.Error(
