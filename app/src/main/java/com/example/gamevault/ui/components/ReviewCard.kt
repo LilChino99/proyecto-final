@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -34,8 +35,8 @@ import java.util.Locale
 /**
  * Tarjeta de reseña para la lista de "Mis Reseñas".
  *
- * Muestra la imagen del juego, nombre, calificación del usuario,
- * texto de la reseña y la foto tomada con la cámara (si existe).
+ * Muestra la imagen del juego, nombre, calificación, reseña y
+ * la foto tomada con la cámara del dispositivo (si existe).
  */
 @Composable
 fun ReviewCard(
@@ -54,69 +55,103 @@ fun ReviewCard(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         )
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.Top
+        Column(
+            modifier = Modifier.padding(12.dp)
         ) {
-            // Imagen del juego (de la API, cacheada en la reseña)
-            AsyncImage(
-                model = review.gameImageUrl,
-                contentDescription = "Portada de ${review.gameName}",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(12.dp))
-            )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(
-                modifier = Modifier.weight(1f)
+            Row(
+                verticalAlignment = Alignment.Top
             ) {
-                // Nombre del juego
-                Text(
-                    text = review.gameName,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                // Imagen del juego (portada API)
+                AsyncImage(
+                    model = review.gameImageUrl,
+                    contentDescription = "Portada de ${review.gameName}",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(12.dp))
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
-                // Rating del usuario
-                RatingBar(
-                    rating = review.userRating,
-                    starSize = 16.dp
-                )
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    // Nombre del juego
+                    Text(
+                        text = review.gameName,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                // Texto de la reseña (preview)
-                Text(
-                    text = review.reviewText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                    // Rating del usuario
+                    RatingBar(
+                        rating = review.userRating,
+                        starSize = 16.dp
+                    )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                // Fecha
-                Text(
-                    text = formatDate(review.createdAt),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
+                    // Texto de la reseña
+                    Text(
+                        text = review.reviewText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Fecha
+                    Text(
+                        text = formatDate(review.createdAt),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+
+                // Botón eliminar
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = "Eliminar reseña",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
 
-            // Botón eliminar
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Filled.Delete,
-                    contentDescription = "Eliminar reseña",
-                    tint = MaterialTheme.colorScheme.error
+            // Si el usuario tomó una foto con la cámara, mostrar la vista previa aquí
+            if (!review.photoPath.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.CameraAlt,
+                        contentDescription = "Foto capturada",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Foto propia adjunta:",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                AsyncImage(
+                    model = review.photoPath,
+                    contentDescription = "Foto capturada por el usuario",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp)
+                        .clip(RoundedCornerShape(12.dp))
                 )
             }
         }

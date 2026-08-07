@@ -1,5 +1,10 @@
 package com.example.gamevault.ui.screens.review
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,7 +21,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -31,31 +39,38 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.gamevault.ui.components.RatingBar
+import com.example.gamevault.ui.util.PhotoFileProvider
+import com.example.gamevault.ui.util.PhotoFileResult
 
 /**
- * Pantalla para crear una reseña de un videojuego.
+ * Pantalla para crear/editar una reseña de un videojuego.
  *
  * Incluye:
- * - Info del juego (nombre + imagen)
- * - Campo de texto para la reseña
- * - Selector de calificación (estrellas)
- * - Botón de cámara (placeholder en Semana 1, funcional en Semana 4)
- * - Botón guardar
+ * - Selección de calificación (estrellas)
+ * - Texto de reseña
+ * - Captura de foto con la cámara usando FileProvider + ActivityResultContracts
+ * - Solicitud y manejo del permiso Manifest.permission.CAMERA en tiempo de ejecución
+ * - Manejo de rechazo de permiso (permite guardar la reseña sin foto)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,13 +80,57 @@ fun CreateReviewScreen(
     modifier: Modifier = Modifier,
     viewModel: CreateReviewViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val reviewText by viewModel.reviewText.collectAsStateWithLifecycle()
     val userRating by viewModel.userRating.collectAsStateWithLifecycle()
     val photoPath by viewModel.photoPath.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Navegar de vuelta cuando se guarda exitosamente
+    // Estado para guardar temporalmente la Uri y ruta de la foto a capturar
+    var currentPhotoResult by remember { mutableStateOf<PhotoFileResult?>(null) }
+    var showPermissionDeniedDialog by remember { mutableStateOf(false) }
+
+    // Launcher para tomar la foto con la app de cámara
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && currentPhotoResult != null) {
+            viewModel.onPhotoTaken(currentPhotoResult!!.absolutePath)
+        }
+    }
+
+    // Launcher para solicitar el permiso CAMERA en tiempo de ejecución
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // Permiso concedido: crear archivo temporal y abrir cámara
+            val result = PhotoFileProvider.createPhotoFile(context)
+            currentPhotoResult = result
+            takePictureLauncher.launch(result.uri)
+        } else {
+            // Permiso denegado: mostrar diálogo explicativo
+            showPermissionDeniedDialog = true
+        }
+    }
+
+    // Función auxiliar para iniciar la toma de foto comprobando permisos
+    fun launchCameraFlow() {
+        val permissionCheck = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        )
+        if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
+            val result = PhotoFileProvider.createPhotoFile(context)
+            currentPhotoResult = result
+            takePictureLauncher.launch(result.uri)
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    // Navegar de vuelta al guardar exitosamente
     LaunchedEffect(uiState) {
         when (uiState) {
             is CreateReviewUiState.Saved -> onReviewSaved()
@@ -81,7 +140,7 @@ fun CreateReviewScreen(
                 )
                 viewModel.resetError()
             }
-            else -> { /* No action */ }
+            else -> {}
         }
     }
 
@@ -158,7 +217,7 @@ fun CreateReviewScreen(
 
             // Texto de la reseña
             Text(
-                text = "Tu reseña",
+                text = "Tu reseña personal",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -176,33 +235,44 @@ fun CreateReviewScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Foto con cámara (placeholder - funcional en Semana 4)
+            // Sección de foto con la Cámara
             Text(
-                text = "Foto del juego (opcional)",
+                text = "Foto de tu juego (Cámara)",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            if (photoPath != null) {
-                // Mostrar la foto tomada
-                AsyncImage(
-                    model = photoPath,
-                    contentDescription = "Foto de tu juego",
-                    contentScale = ContentScale.Crop,
+            if (!photoPath.isNullOrBlank()) {
+                // Vista previa de la foto capturada
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(200.dp)
+                        .height(220.dp)
                         .clip(RoundedCornerShape(12.dp))
-                )
+                ) {
+                    AsyncImage(
+                        model = photoPath,
+                        contentDescription = "Foto capturada del juego",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    IconButton(
+                        onClick = { viewModel.onPhotoTaken("") },
+                        modifier = Modifier.align(Alignment.TopEnd)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = "Eliminar foto",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
             OutlinedButton(
-                onClick = {
-                    // Semana 4: aquí se abrirá la cámara con permisos
-                    // Por ahora es un placeholder
-                },
+                onClick = { launchCameraFlow() },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -212,16 +282,8 @@ fun CreateReviewScreen(
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Tomar foto con la cámara")
+                Text(if (photoPath.isNullOrBlank()) "Tomar foto con la Cámara" else "Volver a tomar foto")
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "📸 La funcionalidad de cámara se implementará en la Semana 4",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.outline
-            )
 
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -254,6 +316,41 @@ fun CreateReviewScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        // Diálogo de manejo de caso en que el usuario rechaza el permiso de cámara
+        if (showPermissionDeniedDialog) {
+            AlertDialog(
+                onDismissRequest = { showPermissionDeniedDialog = false },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Filled.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                },
+                title = { Text("Permiso de Cámara Denegado") },
+                text = {
+                    Text(
+                        "Se denegó el permiso para usar la cámara. " +
+                                "Aun así puedes guardar tu reseña normalmente sin foto, " +
+                                "o intentar nuevamente concediendo el permiso."
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { showPermissionDeniedDialog = false }) {
+                        Text("Entendido, continuar sin foto")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        showPermissionDeniedDialog = false
+                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    }) {
+                        Text("Reintentar Permiso")
+                    }
+                }
+            )
         }
     }
 }

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Directorio interno de la app donde se guardarán las fotos de las reseñas -->
+    <files-path
+        name="review_photos"
+        path="review_photos/" />
+    <!-- Respaldos en caché externa si fuera necesario -->
+    <external-files-path
+        name="external_review_photos"
+        path="review_photos/" />
+</paths>
