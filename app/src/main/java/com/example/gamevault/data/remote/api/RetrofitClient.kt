@@ -7,23 +7,17 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 /**
- * Cliente Retrofit Singleton para GameVault.
- *
- * Configura:
- * - Base URL de RAWG API: https://api.rawg.io/api/
- * - OkHttp con HttpLoggingInterceptor (para ver las respuestas HTTP en Logcat)
- * - GsonConverterFactory para convertir JSON a Data Transfer Objects (DTOs)
- * - Timeouts de conexión y lectura
+ * Cliente Retrofit Singleton para autenticación en Twitch y consulta de la API de IGDB v4.
  */
 object RetrofitClient {
 
-    private const val BASE_URL = "https://api.rawg.io/api/"
+    private const val BASE_URL = "https://api.igdb.com/v4/"
 
-    /**
-     * API Key pública por defecto para RAWG Video Games Database.
-     * Puedes reemplazarla por tu propia clave obtenida gratuitamente en https://rawg.io/apidocs
-     */
-    const val RAWG_API_KEY = "c53a701509054d3c965706509f635682"
+    /** Client ID proporcionado por la consola de desarrolladores de Twitch */
+    const val TWITCH_CLIENT_ID = "x7b9sgpozax1txfj2y17z0fpbq8pbf"
+
+    /** Client Secret proporcionado por Twitch. Generar haciendo clic en "New Secret" en la consola de Twitch */
+    var TWITCH_CLIENT_SECRET = ""
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
@@ -35,12 +29,12 @@ object RetrofitClient {
         .readTimeout(15, TimeUnit.SECONDS)
         .build()
 
-    val apiService: RawgApiService by lazy {
+    val apiService: IgdbApiService by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-            .create(RawgApiService::class.java)
+            .create(IgdbApiService::class.java)
     }
 }
